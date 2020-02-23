@@ -7,6 +7,13 @@ import (
 
 type QueryType int
 
+func (q QueryType) String() string {
+	if int(q) >= len(queryTypes) {
+		return "unknown query type"
+	}
+	return queryTypes[q] + " query type"
+}
+
 const (
 	QueryTypeUnknown = iota
 	QueryTypeBoolean
@@ -25,6 +32,25 @@ const (
 	QueryTypeTermRange
 	QueryTypeWildcard
 )
+
+var queryTypes = [...]string{
+	QueryTypeUnknown:      "unknown",
+	QueryTypeBoolean:      "boolean",
+	QueryTypeBoolField:    "bool field",
+	QueryTypeDateRange:    "date range",
+	QueryTypeIDs:          "ids",
+	QueryTypeMatch:        "match",
+	QueryTypeMatchAll:     "match all",
+	QueryTypeMatchNone:    "match none",
+	QueryTypeMatchPhrase:  "match phrase",
+	QueryTypeMultiPhrase:  "multi phrase",
+	QueryTypeNumericRange: "numeric range",
+	QueryTypePrefix:       "prefix",
+	QueryTypeString:       "string",
+	QueryTypeTerm:         "term",
+	QueryTypeTermRange:    "term range",
+	QueryTypeWildcard:     "wildcard",
+}
 
 type (
 	Query interface {
@@ -66,14 +92,6 @@ type (
 		InclusiveEnd   *bool
 		FieldVal       string
 		BoostVal       *Boost
-	}
-
-	QueryMatchAll struct {
-		BoostVal *Boost
-	}
-
-	QueryMatchNone struct {
-		BoostVal *Boost
 	}
 
 	QueryMatchPhrase struct {
@@ -248,6 +266,46 @@ func (q *QueryMatch) SetFuzziness(fuzz int) *QueryMatch {
 
 func (q *QueryMatch) SetPrefix(prefix int) *QueryMatch {
 	q.Prefix = prefix
+	return q
+}
+
+type QueryMatchAll struct {
+	BoostVal *Boost
+}
+
+func NewQueryMatchAll() *QueryMatchAll {
+	return new(QueryMatchAll)
+}
+
+func (q *QueryMatchAll) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type: QueryTypeMatchAll,
+	}
+}
+
+func (q *QueryMatchAll) SetBoost(b float64) *QueryMatchAll {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+type QueryMatchNone struct {
+	BoostVal *Boost
+}
+
+func NewQueryMatchNone() *QueryMatchNone {
+	return new(QueryMatchNone)
+}
+
+func (q *QueryMatchNone) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type: QueryTypeMatchNone,
+	}
+}
+
+func (q *QueryMatchNone) SetBoost(b float64) *QueryMatchNone {
+	boost := Boost(b)
+	q.BoostVal = &boost
 	return q
 }
 

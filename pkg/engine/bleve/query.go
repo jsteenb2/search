@@ -1,8 +1,6 @@
 package bleve
 
 import (
-	"strconv"
-
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/search/query"
 	"github.com/jsteenb2/search"
@@ -13,12 +11,6 @@ func convertQuery(q search.Query) query.Query {
 	switch qp.Type {
 	case search.QueryTypeBoolean:
 		return newBoolQuery(qp)
-	case search.QueryTypeMatchAll:
-		q := query.NewMatchAllQuery()
-		if qp.BoostVal != nil {
-			q.SetBoost(float64(*qp.BoostVal))
-		}
-		return q
 	case search.QueryTypeIDs:
 		q := query.NewDocIDQuery(qp.Matches)
 		if qp.BoostVal != nil {
@@ -27,10 +19,22 @@ func convertQuery(q search.Query) query.Query {
 		return q
 	case search.QueryTypeMatch:
 		return newMatchQuery(qp)
+	case search.QueryTypeMatchAll:
+		q := query.NewMatchAllQuery()
+		if qp.BoostVal != nil {
+			q.SetBoost(float64(*qp.BoostVal))
+		}
+		return q
+	case search.QueryTypeMatchNone:
+		q := query.NewMatchNoneQuery()
+		if qp.BoostVal != nil {
+			q.SetBoost(float64(*qp.BoostVal))
+		}
+		return q
 	case search.QueryTypeTerm:
 		return newTermQuery(qp)
 	default:
-		panic("unexpected query type: " + strconv.Itoa(int(qp.Type)))
+		panic("unexpected query type: " + qp.Type.String())
 	}
 }
 

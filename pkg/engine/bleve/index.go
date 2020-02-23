@@ -2,7 +2,6 @@ package bleve
 
 import (
 	"context"
-	"errors"
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
@@ -58,11 +57,6 @@ func (i *Index) Search(ctx context.Context, q search.Query) (*search.Result, err
 	if err != nil {
 		return nil, err
 	}
-	if res.Total == 0 {
-		return nil, errors.New("no results for provided query")
-	}
-
-	//fmt.Println(res)
 	return convertSearchResult(res), nil
 }
 
@@ -82,15 +76,14 @@ func convertSearchResult(r *bleve.SearchResult) *search.Result {
 
 	s.Hits = make([]search.Hit, 0, len(r.Hits))
 	for _, h := range r.Hits {
-		hit := search.Hit{
+		s.Hits = append(s.Hits, search.Hit{
 			Index:       h.Index,
 			ID:          h.ID,
 			Score:       h.Score,
 			Explanation: convertExplanation(h.Expl),
 			Sort:        h.Sort,
 			Fields:      h.Fields,
-		}
-		s.Hits = append(s.Hits, hit)
+		})
 	}
 	return s
 }
