@@ -53,6 +53,10 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 		testFn func(t *testing.T, engineInitFn InitFn)
 	}{
 		{
+			name:   "bool field",
+			testFn: TestBoolFieldQuery,
+		},
+		{
 			name:   "match",
 			testFn: TestMatchQuery,
 		},
@@ -74,6 +78,96 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.testFn(t, engineInitFn)
 		})
+	}
+}
+
+func TestBoolFieldQuery(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	docs := []struct {
+		id string
+		v  interface{}
+	}{
+		{
+			id: "1t",
+			v:  map[string]interface{}{"bar": true},
+		},
+		{
+			id: "2f",
+			v:  map[string]interface{}{"baz": false},
+		},
+		{
+			id: "1f",
+			v:  map[string]interface{}{"bar": false},
+		},
+		{
+			id: "nestedF",
+			v: map[string]interface{}{
+				"nest": map[string]interface{}{
+					"first": false,
+				}},
+		},
+		{
+			id: "nestedT",
+			v: map[string]interface{}{
+				"nest": map[string]interface{}{
+					"first": true,
+				}},
+		},
+	}
+
+	seedIndex(t, engine, indexName, docs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name:     "basic true",
+			query:    search.NewQueryBoolField(true),
+			expected: []string{"1t", "nestedT"},
+		},
+		{
+			name:     "basic false",
+			query:    search.NewQueryBoolField(false),
+			expected: []string{"1f", "2f", "nestedF"},
+		},
+		{
+			name: "nested true",
+			query: search.
+				NewQueryBoolField(true).
+				SetField("nest.first"),
+			expected: []string{"nestedT"},
+		},
+		{
+			name: "nested false",
+			query: search.
+				NewQueryBoolField(false).
+				SetField("nest.first"),
+			expected: []string{"nestedF"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			require.Len(t, result.Hits, len(tt.expected))
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected, result.Hits[i].ID)
+			}
+		}
+		t.Run(tt.name, fn)
 	}
 }
 

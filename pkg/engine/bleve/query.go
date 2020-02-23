@@ -9,6 +9,8 @@ import (
 func convertQuery(q search.Query) query.Query {
 	qp := q.QueryPlan()
 	switch qp.Type {
+	case search.QueryTypeBoolField:
+		return newBoolFieldQuery(qp)
 	case search.QueryTypeBoolean:
 		return newBoolQuery(qp)
 	case search.QueryTypeIDs:
@@ -38,6 +40,17 @@ func convertQuery(q search.Query) query.Query {
 	default:
 		panic("unexpected query type: " + qp.Type.String())
 	}
+}
+
+func newBoolFieldQuery(qp search.QueryPlan) *query.BoolFieldQuery {
+	q := query.NewBoolFieldQuery(qp.Bool)
+	if qp.FieldVal != "" {
+		q.SetField(qp.FieldVal)
+	}
+	if qp.BoostVal != nil {
+		q.SetBoost(float64(*qp.BoostVal))
+	}
+	return q
 }
 
 func newBoolQuery(qp search.QueryPlan) *query.BooleanQuery {

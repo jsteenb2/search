@@ -68,6 +68,7 @@ type (
 		BoostVal *Boost
 		FieldVal string
 
+		Bool      bool
 		Matches   []string
 		Fuzziness int
 		Operator  QueryOperator
@@ -77,12 +78,6 @@ type (
 		Min, Max     Bound
 		InclusiveMin bool
 		InclusiveMax bool
-	}
-
-	QueryBoolField struct {
-		Bool     bool
-		BoostVal *Boost
-		FieldVal string
 	}
 
 	QueryDateRange struct {
@@ -141,6 +136,38 @@ type (
 		BoostVal *Boost
 	}
 )
+
+type QueryBoolField struct {
+	Bool     bool
+	BoostVal *Boost
+	FieldVal string
+}
+
+func NewQueryBoolField(b bool) *QueryBoolField {
+	return &QueryBoolField{
+		Bool: b,
+	}
+}
+
+func (q *QueryBoolField) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type:     QueryTypeBoolField,
+		Bool:     q.Bool,
+		BoostVal: q.BoostVal,
+		FieldVal: q.FieldVal,
+	}
+}
+
+func (q *QueryBoolField) SetBoost(b float64) *QueryBoolField {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+func (q *QueryBoolField) SetField(field string) *QueryBoolField {
+	q.FieldVal = field
+	return q
+}
 
 type QueryBoolean struct {
 	Should   []Query
