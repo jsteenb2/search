@@ -241,6 +241,11 @@ func (q *QueryMatch) SetField(field string) *QueryMatch {
 	return q
 }
 
+func (q *QueryMatch) SetFuzziness(fuzz int) *QueryMatch {
+	q.Fuzziness = fuzz
+	return q
+}
+
 func (q *QueryMatch) SetPrefix(prefix int) *QueryMatch {
 	q.Prefix = prefix
 	return q

@@ -33,9 +33,6 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 func TestMatchQuery(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
-	// TODO: add table tests for all the extra fields in
-	//  the MatchQuery
-
 	engine, indexName, cleanup := engineInitFn(t)
 	defer cleanup()
 
@@ -62,6 +59,14 @@ func TestMatchQuery(t *testing.T, engineInitFn InitFn) {
 		{
 			id: "fit",
 			v:  map[string]string{"fit": "foo bar bit fit"},
+		},
+		{
+			id: "nested bit",
+			v: map[string]interface{}{
+				"nest": map[string]string{
+					"second": "bit",
+				},
+			},
 		},
 	}
 
@@ -94,6 +99,35 @@ func TestMatchQuery(t *testing.T, engineInitFn InitFn) {
 			name:     "multiple",
 			query:    search.NewQueryMatch("foobar bar foo"),
 			expected: []string{"fit", "baz", "foo2", "foo1"},
+		},
+		{
+			name: "nested field",
+			query: search.
+				NewQueryMatch("bit").
+				SetField("nest.second"),
+			expected: []string{"nested bit"},
+		},
+		{
+			name: "fuzzy 1 off",
+			query: search.
+				NewQueryMatch("fobar").
+				SetFuzziness(1),
+			expected: []string{"baz"},
+		},
+		{
+			name: "fuzzy 3 off",
+			query: search.
+				NewQueryMatch("fobarhm").
+				SetFuzziness(3),
+			expected: []string{"baz"},
+		},
+		{
+			name: "fuzzy with prefix",
+			query: search.
+				NewQueryMatch("fooba").
+				SetPrefix(4).
+				SetFuzziness(1),
+			expected: []string{"baz"},
 		},
 	}
 
