@@ -41,6 +41,7 @@ var simpleDocs = []struct {
 		v: map[string]interface{}{
 			"nest": map[string]string{
 				"second": "bit",
+				"third":  "lift it up",
 			},
 		},
 	},
@@ -62,6 +63,10 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 		{
 			name:   "match none",
 			testFn: TestMatchNoneQuery,
+		},
+		{
+			name:   "match phrase",
+			testFn: TestMatchPhraseQuery,
 		},
 	}
 
@@ -225,6 +230,57 @@ func TestMatchNoneQuery(t *testing.T, engineInitFn InitFn) {
 			require.NoError(t, err)
 
 			require.Empty(t, result.Hits)
+		}
+		t.Run(tt.name, fn)
+	}
+}
+
+func TestMatchPhraseQuery(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	seedIndex(t, engine, indexName, simpleDocs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name:     "basic phrase",
+			query:    search.NewQueryMatchPhrase("bar bug"),
+			expected: []string{"foo1"},
+		},
+		{
+			name:     "basic phrase",
+			query:    search.NewQueryMatchPhrase("bar bug"),
+			expected: []string{"foo1"},
+		},
+		{
+			name: "basic phrase",
+			query: search.
+				NewQueryMatchPhrase("lift it ").
+				SetField("nest.third"), // extra space on purpose
+			expected: []string{"nested bit"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			require.Len(t, result.Hits, len(tt.expected))
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected, result.Hits[i].ID)
+			}
 		}
 		t.Run(tt.name, fn)
 	}

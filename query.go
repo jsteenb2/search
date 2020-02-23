@@ -15,7 +15,7 @@ func (q QueryType) String() string {
 }
 
 const (
-	QueryTypeUnknown = iota
+	QueryTypeUnknown QueryType = iota
 	QueryTypeBoolean
 	QueryTypeBoolField
 	QueryTypeDateRange
@@ -92,13 +92,6 @@ type (
 		InclusiveEnd   *bool
 		FieldVal       string
 		BoostVal       *Boost
-	}
-
-	QueryMatchPhrase struct {
-		MatchPhrase string
-		FieldVal    string
-		Analyzer    string
-		BoostVal    *Boost
 	}
 
 	QueryMultiPhrase struct {
@@ -306,6 +299,45 @@ func (q *QueryMatchNone) QueryPlan() QueryPlan {
 func (q *QueryMatchNone) SetBoost(b float64) *QueryMatchNone {
 	boost := Boost(b)
 	q.BoostVal = &boost
+	return q
+}
+
+type QueryMatchPhrase struct {
+	MatchPhrase string
+	FieldVal    string
+	Analyzer    string
+	BoostVal    *Boost
+}
+
+func NewQueryMatchPhrase(phrase string) *QueryMatchPhrase {
+	return &QueryMatchPhrase{
+		MatchPhrase: phrase,
+	}
+}
+
+func (q *QueryMatchPhrase) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type:     QueryTypeMatchPhrase,
+		Matches:  []string{q.MatchPhrase},
+		Analyzer: q.Analyzer,
+		BoostVal: q.BoostVal,
+		FieldVal: q.FieldVal,
+	}
+}
+
+func (q *QueryMatchPhrase) SetAnalyzer(analyzer string) *QueryMatchPhrase {
+	q.Analyzer = analyzer
+	return q
+}
+
+func (q *QueryMatchPhrase) SetBoost(b float64) *QueryMatchPhrase {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+func (q *QueryMatchPhrase) SetField(field string) *QueryMatchPhrase {
+	q.FieldVal = field
 	return q
 }
 

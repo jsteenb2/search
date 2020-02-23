@@ -31,6 +31,8 @@ func convertQuery(q search.Query) query.Query {
 			q.SetBoost(float64(*qp.BoostVal))
 		}
 		return q
+	case search.QueryTypeMatchPhrase:
+		return newMatchPhraseQuery(qp)
 	case search.QueryTypeTerm:
 		return newTermQuery(qp)
 	default:
@@ -72,6 +74,20 @@ func newMatchQuery(qp search.QueryPlan) *query.MatchQuery {
 	}
 	if qp.Fuzziness > 0 {
 		q.SetFuzziness(qp.Fuzziness)
+	}
+	return q
+}
+
+func newMatchPhraseQuery(qp search.QueryPlan) *query.MatchPhraseQuery {
+	q := bleve.NewMatchPhraseQuery(qp.Matches[0])
+	if qp.FieldVal != "" {
+		q.SetField(qp.FieldVal)
+	}
+	if qp.Analyzer != "" {
+		q.Analyzer = qp.Analyzer
+	}
+	if qp.BoostVal != nil {
+		q.SetBoost(float64(*qp.BoostVal))
 	}
 	return q
 }
