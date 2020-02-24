@@ -39,6 +39,8 @@ func convertQuery(q search.Query) query.Query {
 		return newMatchPhraseQuery(qp)
 	case search.QueryTypeNumericRange:
 		return newNumericRangeQuery(qp)
+	case search.QueryTypePrefix:
+		return newPrefixQuery(qp)
 	case search.QueryTypeTerm:
 		return newTermQuery(qp)
 	default:
@@ -143,6 +145,17 @@ func newNumericRangeQuery(qp search.QueryPlan) *query.NumericRangeQuery {
 		q.SetBoost(float64(*qp.BoostVal))
 	}
 
+	return q
+}
+
+func newPrefixQuery(qp search.QueryPlan) *query.PrefixQuery {
+	q := query.NewPrefixQuery(qp.Matches[0])
+	if qp.BoostVal != nil {
+		q.SetBoost(float64(*qp.BoostVal))
+	}
+	if qp.FieldVal != "" {
+		q.SetField(qp.FieldVal)
+	}
 	return q
 }
 

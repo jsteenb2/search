@@ -81,6 +81,10 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 			name:   "numeric range",
 			testFn: TestNumericRangeQuery,
 		},
+		{
+			name:   "prefix",
+			testFn: TestPrefixQuery,
+		},
 	}
 
 	for _, tt := range queryTests {
@@ -612,6 +616,54 @@ func TestNumericRangeQuery(t *testing.T, engineInitFn InitFn) {
 				SetMax(1).
 				SetInclusiveMax(true),
 			expected: []string{"0", "1"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			hasHitIDs(t, result.Hits, tt.expected...)
+		}
+		t.Run(tt.name, fn)
+	}
+}
+
+func TestPrefixQuery(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	seedIndex(t, engine, indexName, simpleDocs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name:     "basic prefix",
+			query:    search.NewQueryPrefix("bar"),
+			expected: []string{"foo2", "foo1", "fit"},
+		},
+		{
+			name:     "basic prefix spaced",
+			query:    search.NewQueryPrefix("b"),
+			expected: []string{"foo1", "fit", "bar", "nested bit", "foo2"},
+		},
+		{
+			name: "prefix nested",
+			query: search.
+				NewQueryPrefix("b").
+				SetField("nest.second"),
+			expected: []string{"nested bit"},
 		},
 	}
 

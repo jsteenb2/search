@@ -86,12 +86,6 @@ type (
 		BoostVal *Boost
 	}
 
-	QueryPrefix struct {
-		Prefix   string
-		FieldVal string
-		BoostVal *Boost
-	}
-
 	QueryRegexp struct {
 		Regexp   string
 		FieldVal string
@@ -463,6 +457,38 @@ func (q *QueryNumericRange) SetInclusiveMin(b bool) *QueryNumericRange {
 
 func (q *QueryNumericRange) SetInclusiveMax(b bool) *QueryNumericRange {
 	q.InclusiveMax = b
+	return q
+}
+
+type QueryPrefix struct {
+	Prefix   string
+	FieldVal string
+	BoostVal *Boost
+}
+
+func NewQueryPrefix(prefix string) *QueryPrefix {
+	return &QueryPrefix{
+		Prefix: prefix,
+	}
+}
+
+func (q *QueryPrefix) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type:     QueryTypePrefix,
+		Matches:  []string{q.Prefix},
+		BoostVal: q.BoostVal,
+		FieldVal: q.FieldVal,
+	}
+}
+
+func (q *QueryPrefix) SetBoost(b float64) *QueryPrefix {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+func (q *QueryPrefix) SetField(field string) *QueryPrefix {
+	q.FieldVal = field
 	return q
 }
 
