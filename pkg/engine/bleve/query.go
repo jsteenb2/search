@@ -37,6 +37,8 @@ func convertQuery(q search.Query) query.Query {
 		return q
 	case search.QueryTypeMatchPhrase:
 		return newMatchPhraseQuery(qp)
+	case search.QueryTypeNumericRange:
+		return newNumericRangeQuery(qp)
 	case search.QueryTypeTerm:
 		return newTermQuery(qp)
 	default:
@@ -118,6 +120,29 @@ func newMatchPhraseQuery(qp search.QueryPlan) *query.MatchPhraseQuery {
 	if qp.BoostVal != nil {
 		q.SetBoost(float64(*qp.BoostVal))
 	}
+	return q
+}
+
+func newNumericRangeQuery(qp search.QueryPlan) *query.NumericRangeQuery {
+	var min *float64
+	if nullMin := search.BoundNullFloat64(qp.Min); nullMin.Valid {
+		min = &nullMin.Float64
+	}
+	var max *float64
+	if nullMax := search.BoundNullFloat64(qp.Max); nullMax.Valid {
+		max = &nullMax.Float64
+	}
+
+	q := bleve.NewNumericRangeQuery(min, max)
+	q.InclusiveMax = &qp.InclusiveMax
+	q.InclusiveMin = &qp.InclusiveMin
+	if qp.FieldVal != "" {
+		q.SetField(qp.FieldVal)
+	}
+	if qp.BoostVal != nil {
+		q.SetBoost(float64(*qp.BoostVal))
+	}
+
 	return q
 }
 

@@ -86,15 +86,6 @@ type (
 		BoostVal *Boost
 	}
 
-	QueryNumericRange struct {
-		Min          *float64
-		Max          *float64
-		InclusiveMin *bool
-		InclusiveMax *bool
-		FieldVal     string
-		BoostVal     *Boost
-	}
-
 	QueryPrefix struct {
 		Prefix   string
 		FieldVal string
@@ -411,6 +402,70 @@ func (q *QueryMatchPhrase) SetField(field string) *QueryMatchPhrase {
 	return q
 }
 
+type QueryNumericRange struct {
+	Min          NullFloat64
+	Max          NullFloat64
+	InclusiveMin bool
+	InclusiveMax bool
+	FieldVal     string
+	BoostVal     *Boost
+}
+
+func NewQueryNumericRange() *QueryNumericRange {
+	return &QueryNumericRange{
+		InclusiveMin: true,
+	}
+}
+
+func (q *QueryNumericRange) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type:         QueryTypeNumericRange,
+		Min:          q.Min,
+		Max:          q.Max,
+		InclusiveMin: q.InclusiveMin,
+		InclusiveMax: q.InclusiveMax,
+		BoostVal:     q.BoostVal,
+		FieldVal:     q.FieldVal,
+	}
+}
+
+func (q *QueryNumericRange) SetBoost(b float64) *QueryNumericRange {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+func (q *QueryNumericRange) SetField(field string) *QueryNumericRange {
+	q.FieldVal = field
+	return q
+}
+
+func (q *QueryNumericRange) SetMin(f float64) *QueryNumericRange {
+	q.Min = NullFloat64{
+		Float64: f,
+		Valid:   true,
+	}
+	return q
+}
+
+func (q *QueryNumericRange) SetMax(f float64) *QueryNumericRange {
+	q.Max = NullFloat64{
+		Float64: f,
+		Valid:   true,
+	}
+	return q
+}
+
+func (q *QueryNumericRange) SetInclusiveMin(b bool) *QueryNumericRange {
+	q.InclusiveMin = b
+	return q
+}
+
+func (q *QueryNumericRange) SetInclusiveMax(b bool) *QueryNumericRange {
+	q.InclusiveMax = b
+	return q
+}
+
 type QueryTerm struct {
 	Term     string
 	FieldVal string
@@ -475,12 +530,17 @@ func BoundString(b Bound) string {
 	return s
 }
 
-func BoundFloat64(b Bound) float64 {
-	f, _ := b.(float64)
+func BoundNullFloat64(b Bound) NullFloat64 {
+	f, _ := b.(NullFloat64)
 	return f
 }
 
 func BoundDate(b Bound) time.Time {
 	t, _ := b.(time.Time)
 	return t
+}
+
+type NullFloat64 struct {
+	Float64 float64
+	Valid   bool
 }

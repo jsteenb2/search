@@ -77,6 +77,10 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 			name:   "match phrase",
 			testFn: TestMatchPhraseQuery,
 		},
+		{
+			name:   "numeric range",
+			testFn: TestNumericRangeQuery,
+		},
 	}
 
 	for _, tt := range queryTests {
@@ -504,6 +508,110 @@ func TestMatchPhraseQuery(t *testing.T, engineInitFn InitFn) {
 				NewQueryMatchPhrase("lift it ").
 				SetField("nest.third"), // extra space on purpose
 			expected: []string{"nested bit"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			hasHitIDs(t, result.Hits, tt.expected...)
+		}
+		t.Run(tt.name, fn)
+	}
+}
+
+func TestNumericRangeQuery(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	docs := []struct {
+		id string
+		v  interface{}
+	}{
+		{
+			id: "0",
+			v:  map[string]interface{}{"foo0": 0},
+		},
+		{
+			id: "1",
+			v:  map[string]interface{}{"foo1": 1},
+		},
+		{
+			id: "5",
+			v:  map[string]interface{}{"foo5": 5},
+		},
+		{
+			id: "-5",
+			v:  map[string]interface{}{"foo-5": -5},
+		},
+		{
+			id: "-1",
+			v:  map[string]interface{}{"foo-5": -1},
+		},
+	}
+
+	seedIndex(t, engine, indexName, docs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name: "basic max exclusive",
+			query: search.
+				NewQueryNumericRange().
+				SetMax(-1),
+			expected: []string{"-5"},
+		},
+		{
+			name: "basic max inclusive",
+			query: search.
+				NewQueryNumericRange().
+				SetMax(0).
+				SetInclusiveMax(true),
+			expected: []string{"-1", "-5", "0"},
+		},
+		{
+			name: "basic min exclusive",
+			query: search.
+				NewQueryNumericRange().
+				SetMin(0).
+				SetInclusiveMin(false),
+			expected: []string{"1", "5"},
+		},
+		{
+			name: "basic max inclusive",
+			query: search.
+				NewQueryNumericRange().
+				SetMin(0),
+			expected: []string{"0", "1", "5"},
+		},
+		{
+			name: "min inclusive and max exclusive",
+			query: search.
+				NewQueryNumericRange().
+				SetMin(0).
+				SetMax(1),
+			expected: []string{"0"},
+		},
+		{
+			name: "min inclusive and max exclusive",
+			query: search.
+				NewQueryNumericRange().
+				SetMin(0).
+				SetMax(1).
+				SetInclusiveMax(true),
+			expected: []string{"0", "1"},
 		},
 	}
 
