@@ -55,35 +55,39 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 	}{
 		{
 			name:   "bool field",
-			testFn: TestBoolFieldQuery,
+			testFn: TestQueryBoolField,
 		},
 		{
 			name:   "date range",
-			testFn: TestDateRangeQuery,
+			testFn: TestQueryDateRange,
 		},
 		{
 			name:   "match",
-			testFn: TestMatchQuery,
+			testFn: TestQueryMatch,
 		},
 		{
 			name:   "match all",
-			testFn: TestMatchAllQuery,
+			testFn: TestQueryMatchAll,
 		},
 		{
 			name:   "match none",
-			testFn: TestMatchNoneQuery,
+			testFn: TestQueryMatchNone,
 		},
 		{
 			name:   "match phrase",
-			testFn: TestMatchPhraseQuery,
+			testFn: TestQueryMatchPhrase,
 		},
 		{
 			name:   "numeric range",
-			testFn: TestNumericRangeQuery,
+			testFn: TestQueryNumericRange,
 		},
 		{
 			name:   "prefix",
-			testFn: TestPrefixQuery,
+			testFn: TestQueryPrefix,
+		},
+		{
+			name:   "term",
+			testFn: TestQueryTerm,
 		},
 	}
 
@@ -94,7 +98,7 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestBoolFieldQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryBoolField(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -181,7 +185,7 @@ func TestBoolFieldQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestDateRangeQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryDateRange(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -328,7 +332,7 @@ func TestDateRangeQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestMatchQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryMatch(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -403,7 +407,7 @@ func TestMatchQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestMatchAllQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryMatchAll(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -447,7 +451,7 @@ func TestMatchAllQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestMatchNoneQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryMatchNone(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -483,7 +487,7 @@ func TestMatchNoneQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestMatchPhraseQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryMatchPhrase(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -531,7 +535,7 @@ func TestMatchPhraseQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestNumericRangeQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryNumericRange(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -635,7 +639,7 @@ func TestNumericRangeQuery(t *testing.T, engineInitFn InitFn) {
 	}
 }
 
-func TestPrefixQuery(t *testing.T, engineInitFn InitFn) {
+func TestQueryPrefix(t *testing.T, engineInitFn InitFn) {
 	t.Helper()
 
 	engine, indexName, cleanup := engineInitFn(t)
@@ -662,6 +666,59 @@ func TestPrefixQuery(t *testing.T, engineInitFn InitFn) {
 			name: "prefix nested",
 			query: search.
 				NewQueryPrefix("b").
+				SetField("nest.second"),
+			expected: []string{"nested bit"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			hasHitIDs(t, result.Hits, tt.expected...)
+		}
+		t.Run(tt.name, fn)
+	}
+}
+
+func TestQueryTerm(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	seedIndex(t, engine, indexName, simpleDocs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name:     "no matches",
+			query:    search.NewQueryTerm("b"),
+			expected: []string{},
+		},
+		{
+			name:     "basic term",
+			query:    search.NewQueryTerm("bar"),
+			expected: []string{"foo2", "foo1", "fit"},
+		},
+		{
+			name:     "basic term with nested",
+			query:    search.NewQueryTerm("bit"),
+			expected: []string{"nested bit", "fit"},
+		},
+		{
+			name: "nested term",
+			query: search.
+				NewQueryTerm("bit").
 				SetField("nest.second"),
 			expected: []string{"nested bit"},
 		},
