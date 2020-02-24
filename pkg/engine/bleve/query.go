@@ -43,6 +43,8 @@ func convertQuery(q search.Query) query.Query {
 		return newPrefixQuery(qp)
 	case search.QueryTypeTerm:
 		return newTermQuery(qp)
+	case search.QueryTypeTermRange:
+		return newTermRangeQuery(qp)
 	default:
 		panic("unexpected query type: " + qp.Type.String())
 	}
@@ -166,6 +168,20 @@ func newTermQuery(qp search.QueryPlan) *query.TermQuery {
 	}
 	if qp.BoostVal != nil {
 		q.SetBoost(float64(*qp.BoostVal))
+	}
+	return q
+}
+
+func newTermRangeQuery(qp search.QueryPlan) *query.TermRangeQuery {
+	min, max := search.BoundString(qp.Min), search.BoundString(qp.Max)
+	q := query.NewTermRangeQuery(min, max)
+	q.InclusiveMax = &qp.InclusiveMax
+	q.InclusiveMin = &qp.InclusiveMin
+	if qp.BoostVal != nil {
+		q.SetBoost(float64(*qp.BoostVal))
+	}
+	if qp.FieldVal != "" {
+		q.SetField(qp.FieldVal)
 	}
 	return q
 }

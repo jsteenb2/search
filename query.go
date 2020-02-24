@@ -97,15 +97,6 @@ type (
 		BoostVal *Boost
 	}
 
-	QueryTermRange struct {
-		Min          string
-		Max          string
-		InclusiveMin *bool
-		InclusiveMax *bool
-		FieldVal     string
-		BoostVal     *Boost
-	}
-
 	QueryWildcard struct {
 		Wildcard string
 		FieldVal string
@@ -521,6 +512,56 @@ func (q *QueryTerm) SetBoost(b float64) *QueryTerm {
 
 func (q *QueryTerm) SetField(field string) *QueryTerm {
 	q.FieldVal = field
+	return q
+}
+
+type QueryTermRange struct {
+	Min          string
+	Max          string
+	InclusiveMin bool
+	InclusiveMax bool
+	FieldVal     string
+	BoostVal     *Boost
+}
+
+func NewQueryTermRange(min, max string) *QueryTermRange {
+	return &QueryTermRange{
+		Min:          min,
+		Max:          max,
+		InclusiveMin: true,
+	}
+}
+
+func (q *QueryTermRange) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type:         QueryTypeTermRange,
+		Min:          q.Min,
+		Max:          q.Max,
+		InclusiveMin: q.InclusiveMin,
+		InclusiveMax: q.InclusiveMax,
+		BoostVal:     q.BoostVal,
+		FieldVal:     q.FieldVal,
+	}
+}
+
+func (q *QueryTermRange) SetBoost(b float64) *QueryTermRange {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+func (q *QueryTermRange) SetField(field string) *QueryTermRange {
+	q.FieldVal = field
+	return q
+}
+
+func (q *QueryTermRange) SetInclusiveMin(b bool) *QueryTermRange {
+	q.InclusiveMin = b
+	return q
+}
+
+func (q *QueryTermRange) SetInclusiveMax(b bool) *QueryTermRange {
+	q.InclusiveMax = b
 	return q
 }
 

@@ -89,6 +89,10 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 			name:   "term",
 			testFn: TestQueryTerm,
 		},
+		{
+			name:   "term range",
+			testFn: TestQueryTermRange,
+		},
 	}
 
 	for _, tt := range queryTests {
@@ -721,6 +725,100 @@ func TestQueryTerm(t *testing.T, engineInitFn InitFn) {
 				NewQueryTerm("bit").
 				SetField("nest.second"),
 			expected: []string{"nested bit"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			hasHitIDs(t, result.Hits, tt.expected...)
+		}
+		t.Run(tt.name, fn)
+	}
+}
+
+func TestQueryTermRange(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	docs := []struct {
+		id string
+		v  interface{}
+	}{
+		{
+			id: "0",
+			v:  map[string]interface{}{"foo1": "0"},
+		},
+		{
+			id: "1",
+			v:  map[string]interface{}{"foo1": "1"},
+		},
+		{
+			id: "2",
+			v:  map[string]interface{}{"foo2": "2"},
+		},
+		{
+			id: "nested1",
+			v: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"first": "1",
+				},
+			},
+		},
+	}
+	seedIndex(t, engine, indexName, docs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name:     "no matches",
+			query:    search.NewQueryTermRange("3", ""),
+			expected: []string{},
+		},
+		{
+			name:     "min single",
+			query:    search.NewQueryTermRange("2", ""),
+			expected: []string{"2"},
+		},
+		{
+			name: "min single exclusive min",
+			query: search.
+				NewQueryTermRange("0", "5").
+				SetInclusiveMin(false),
+			expected: []string{"2", "1", "nested1"},
+		},
+		{
+			name: "min single inclusive min inclusive max",
+			query: search.
+				NewQueryTermRange("0", "2").
+				SetInclusiveMax(true),
+			expected: []string{"0", "2", "1", "nested1"},
+		},
+		{
+			name: "min single exclusive min exclusive max",
+			query: search.
+				NewQueryTermRange("0", "2").
+				SetInclusiveMin(false),
+			expected: []string{"1", "nested1"},
+		},
+		{
+			name: "nested",
+			query: search.
+				NewQueryTermRange("0", "2").
+				SetField("nested.first"),
+			expected: []string{"nested1"},
 		},
 	}
 
