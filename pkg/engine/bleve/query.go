@@ -13,6 +13,8 @@ func convertQuery(q search.Query) query.Query {
 		return newBoolFieldQuery(qp)
 	case search.QueryTypeBoolean:
 		return newBoolQuery(qp)
+	case search.QueryTypeDateRange:
+		return newDataRangeQuery(qp)
 	case search.QueryTypeIDs:
 		q := query.NewDocIDQuery(qp.Matches)
 		if qp.BoostVal != nil {
@@ -66,6 +68,20 @@ func newBoolQuery(qp search.QueryPlan) *query.BooleanQuery {
 	}
 	for _, mustNot := range qp.MustNot {
 		q.AddMustNot(convertQuery(mustNot))
+	}
+	return q
+}
+
+func newDataRangeQuery(qp search.QueryPlan) *query.DateRangeQuery {
+	start, end := search.BoundDate(qp.Min), search.BoundDate(qp.Max)
+	q := query.NewDateRangeQuery(start, end)
+	q.InclusiveEnd = &qp.InclusiveMax
+	q.InclusiveStart = &qp.InclusiveMin
+	if qp.FieldVal != "" {
+		q.SetField(qp.FieldVal)
+	}
+	if qp.BoostVal != nil {
+		q.SetBoost(float64(*qp.BoostVal))
 	}
 	return q
 }

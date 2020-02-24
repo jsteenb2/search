@@ -2,6 +2,7 @@ package testing
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,10 @@ func TestSearchQueries(t *testing.T, engineInitFn InitFn) {
 		{
 			name:   "bool field",
 			testFn: TestBoolFieldQuery,
+		},
+		{
+			name:   "date range",
+			testFn: TestDateRangeQuery,
 		},
 		{
 			name:   "match",
@@ -162,10 +167,154 @@ func TestBoolFieldQuery(t *testing.T, engineInitFn InitFn) {
 				Search(ctx, tt.query)
 			require.NoError(t, err)
 
-			require.Len(t, result.Hits, len(tt.expected))
-			for i, expected := range tt.expected {
-				assert.Equal(t, expected, result.Hits[i].ID)
-			}
+			hasHitIDs(t, result.Hits, tt.expected...)
+		}
+		t.Run(tt.name, fn)
+	}
+}
+
+func TestDateRangeQuery(t *testing.T, engineInitFn InitFn) {
+	t.Helper()
+
+	engine, indexName, cleanup := engineInitFn(t)
+	defer cleanup()
+
+	now, day := time.Now(), 24*time.Hour
+
+	docs := []struct {
+		id string
+		v  interface{}
+	}{
+		{
+			id: "bar 30 days ago",
+			v:  map[string]interface{}{"bar": now.Add(-30 * day)},
+		},
+		{
+			id: "bar 20 days ago",
+			v:  map[string]interface{}{"bar": now.Add(-20 * day)},
+		},
+		{
+			id: "bar 10 days ago",
+			v:  map[string]interface{}{"bar": now.Add(-10 * day)},
+		},
+		{
+			id: "bar today",
+			v:  map[string]interface{}{"bar": now},
+		},
+		{
+			id: "baz 10 days ago",
+			v:  map[string]interface{}{"baz": now.Add(-10 * day)},
+		},
+		{
+			id: "baz today",
+			v:  map[string]interface{}{"baz": now},
+		},
+		{
+			id: "nested 10 days ago",
+			v: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"date": now.Add(-10 * day),
+				},
+			},
+		},
+		{
+			id: "nested today",
+			v: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"date": now,
+				},
+			},
+		},
+	}
+
+	seedIndex(t, engine, indexName, docs...)
+
+	tests := []struct {
+		name     string
+		query    search.Query
+		expected []string
+	}{
+		{
+			name:  "30 day range",
+			query: search.NewQueryDataRange(now.Add(-31*day), now.Add(1*day)),
+			expected: []string{
+				"bar 20 days ago", "bar 30 days ago", "bar 10 days ago", "bar today",
+				"baz 10 days ago", "baz today",
+				"nested 10 days ago", "nested today",
+			},
+		},
+		{
+			name:  "defaults to inclusive start and exclusive end",
+			query: search.NewQueryDataRange(now.Add(-30*day), now),
+			expected: []string{
+				"bar 20 days ago", "bar 30 days ago", "bar 10 days ago",
+				"baz 10 days ago",
+				"nested 10 days ago",
+			},
+		},
+		{
+			name: "30 day range exclusive start and end",
+			query: search.
+				NewQueryDataRange(now.Add(-30*day), now).
+				SetInclusiveStart(false).
+				SetInclusiveEnd(false),
+			expected: []string{
+				"bar 20 days ago", "bar 10 days ago",
+				"baz 10 days ago",
+				"nested 10 days ago",
+			},
+		},
+		{
+			name: "30 day range inclusive start and exclusive end",
+			query: search.
+				NewQueryDataRange(now.Add(-30*day), now).
+				SetInclusiveEnd(false),
+			expected: []string{
+				"bar 20 days ago", "bar 30 days ago", "bar 10 days ago",
+				"baz 10 days ago",
+				"nested 10 days ago",
+			},
+		},
+		{
+			name: "30 day range inclusive start and exclusive end",
+			query: search.
+				NewQueryDataRange(now.Add(-30*day), now).
+				SetInclusiveStart(true).
+				SetInclusiveEnd(false),
+			expected: []string{
+				"bar 20 days ago", "bar 30 days ago", "bar 10 days ago",
+				"baz 10 days ago",
+				"nested 10 days ago",
+			},
+		},
+		{
+			name: "nested to inclusive start and exclusive end",
+			query: search.
+				NewQueryDataRange(now.Add(-30*day), now).
+				SetField("nested.date"),
+			expected: []string{"nested 10 days ago"},
+		},
+		{
+			name: "nested to inclusive start and inclusive end",
+			query: search.
+				NewQueryDataRange(now.Add(-30*day), now).
+				SetField("nested.date").
+				SetInclusiveEnd(true),
+			expected: []string{"nested 10 days ago", "nested today"},
+		},
+	}
+
+	for _, tt := range tests {
+		fn := func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			result, err := engine.
+				Index(indexName).
+				Search(ctx, tt.query)
+			require.NoError(t, err)
+
+			hasHitIDs(t, result.Hits, tt.expected...)
 		}
 		t.Run(tt.name, fn)
 	}
@@ -240,10 +389,7 @@ func TestMatchQuery(t *testing.T, engineInitFn InitFn) {
 				Search(ctx, tt.query)
 			require.NoError(t, err)
 
-			require.Len(t, result.Hits, len(tt.expected))
-			for i, expected := range tt.expected {
-				assert.Equal(t, expected, result.Hits[i].ID)
-			}
+			hasHitIDs(t, result.Hits, tt.expected...)
 		}
 		t.Run(tt.name, fn)
 	}
@@ -371,12 +517,24 @@ func TestMatchPhraseQuery(t *testing.T, engineInitFn InitFn) {
 				Search(ctx, tt.query)
 			require.NoError(t, err)
 
-			require.Len(t, result.Hits, len(tt.expected))
-			for i, expected := range tt.expected {
-				assert.Equal(t, expected, result.Hits[i].ID)
-			}
+			hasHitIDs(t, result.Hits, tt.expected...)
 		}
 		t.Run(tt.name, fn)
+	}
+}
+
+func hasHitIDs(t *testing.T, hits []search.Hit, expected ...string) {
+	t.Helper()
+
+	hitIDs := make([]string, 0, len(expected))
+	for _, h := range hits {
+		hitIDs = append(hitIDs, h.ID)
+	}
+	if len(hits) != len(expected) {
+		require.Lenf(t, hits, len(expected), "got ids:\t\t[%s]\nexpected ids:\t[%s]", strings.Join(hitIDs, ", "), strings.Join(expected, ", "))
+	}
+	for i, expected := range expected {
+		assert.Equal(t, expected, hitIDs[i])
 	}
 }
 

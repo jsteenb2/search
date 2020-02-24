@@ -80,15 +80,6 @@ type (
 		InclusiveMax bool
 	}
 
-	QueryDateRange struct {
-		Start          time.Time
-		End            time.Time
-		InclusiveStart *bool
-		InclusiveEnd   *bool
-		FieldVal       string
-		BoostVal       *Boost
-	}
-
 	QueryMultiPhrase struct {
 		Terms    [][]string
 		Field    string
@@ -169,6 +160,56 @@ func (q *QueryBoolField) SetField(field string) *QueryBoolField {
 	return q
 }
 
+type QueryDateRange struct {
+	Start          time.Time
+	End            time.Time
+	InclusiveStart bool
+	InclusiveEnd   bool
+	FieldVal       string
+	BoostVal       *Boost
+}
+
+func NewQueryDataRange(start, end time.Time) *QueryDateRange {
+	return &QueryDateRange{
+		Start:          start,
+		End:            end,
+		InclusiveStart: true,
+	}
+}
+
+func (q *QueryDateRange) QueryPlan() QueryPlan {
+	return QueryPlan{
+		Type:         QueryTypeDateRange,
+		Min:          q.Start,
+		Max:          q.End,
+		InclusiveMin: q.InclusiveStart,
+		InclusiveMax: q.InclusiveEnd,
+		BoostVal:     q.BoostVal,
+		FieldVal:     q.FieldVal,
+	}
+}
+
+func (q *QueryDateRange) SetBoost(b float64) *QueryDateRange {
+	boost := Boost(b)
+	q.BoostVal = &boost
+	return q
+}
+
+func (q *QueryDateRange) SetField(field string) *QueryDateRange {
+	q.FieldVal = field
+	return q
+}
+
+func (q *QueryDateRange) SetInclusiveEnd(b bool) *QueryDateRange {
+	q.InclusiveEnd = b
+	return q
+}
+
+func (q *QueryDateRange) SetInclusiveStart(b bool) *QueryDateRange {
+	q.InclusiveStart = b
+	return q
+}
+
 type QueryBoolean struct {
 	Should   []Query
 	Must     []Query
@@ -190,9 +231,10 @@ func (q *QueryBoolean) QueryPlan() QueryPlan {
 	}
 }
 
-func (q *QueryBoolean) SetBoost(b float64) {
+func (q *QueryBoolean) SetBoost(b float64) *QueryBoolean {
 	boost := Boost(b)
 	q.BoostVal = &boost
+	return q
 }
 
 func (q *QueryBoolean) AddMust(musts ...Query) *QueryBoolean {
@@ -229,9 +271,10 @@ func (q *QueryIDs) QueryPlan() QueryPlan {
 	}
 }
 
-func (q *QueryIDs) SetBoost(b float64) {
+func (q *QueryIDs) SetBoost(b float64) *QueryIDs {
 	boost := Boost(b)
 	q.BoostVal = &boost
+	return q
 }
 
 type QueryMatch struct {
